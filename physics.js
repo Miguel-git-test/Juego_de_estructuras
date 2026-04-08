@@ -359,6 +359,7 @@ export class PhysicsEngine {
             14, // Slightly thicker for volume
             {
                 collisionFilter: { group: -2, mask: 0xFFFFFFFF ^ 2 },
+                angle: angle,
                 render: { 
                     sprite: {
                         texture: this.woodPatterns.normal,
