@@ -6,7 +6,8 @@ const archetypes = [
     { name: "PÉNDULO", type: "tether" },
     { name: "LLUVIA", type: "rain" },
     { name: "CAÑÓN", type: "cannon" },
-    { name: "PUENTE", type: "anchor" }
+    { name: "PUENTE", type: "anchor" },
+    { name: "CATAPULTA", type: "catapult" }
 ];
 
 function generateLevels() {
@@ -99,6 +100,25 @@ function generateLevels() {
                     radius: 7, mass: 4, color: '#95a5a6'
                 }));
                 level.hint = "¡Iron Rain! Crea un caparazón sólido para proteger tus cimientos.";
+                break;
+            
+            case 'catapult':
+                level.king = { x: 750, y: 625 };
+                level.environment = [
+                    { type: 'catapult', x: 50, y: 600, w: 60, h: 30 },
+                    { type: 'catapult', x: 150, y: 610, w: 60, h: 30, angle: -0.7 }
+                ];
+                level.anchors = [
+                    { id: 'a1', x: 500, y: 645 },
+                    { id: 'a2', x: 650, y: 645 }
+                ];
+                level.checkpoints = [{ x: 575, y: 550 }];
+                level.weights = Array.from({ length: 2 + Math.floor(i/15) }, (_, j) => ({
+                    x: 50 + j * 100, y: 580, radius: 18, mass: mass,
+                    velocity: { x: 8 + Math.random()*5, y: -15 - Math.random()*10 }
+                }));
+                level.victoryTimeout = 6000;
+                level.hint = "¡Protege al Rey! Construye una cúpula o un muro alto para desviar las piedras.";
                 break;
 
             default: // Bridge/Tower/Wall

@@ -15,6 +15,7 @@ export class PhysicsEngine {
         this.simulationRunning = false;
         this.ground = null;
         this.extras = []; // Walls, cars, etc.
+        this.kings = []; 
 
         // Custom renderer logic for technical look
         this.setupRenderer();
@@ -79,6 +80,7 @@ export class PhysicsEngine {
         this.simulationRunning = false;
         this.engine.timing.timeScale = 1;
         this.extras = [];
+        this.kings = [];
         Runner.stop(this.runner);
     }
 
@@ -191,6 +193,28 @@ export class PhysicsEngine {
                     });
                     
                     Composite.add(this.world, [barrel, carriage, wheel]);
+                } else if (env.type === 'catapult') {
+                    // Modern Engineered Catapult
+                    const base = Bodies.rectangle(env.x, env.y, env.w, env.h, {
+                        isStatic: true,
+                        render: { fillStyle: '#451a03' }
+                    });
+                    const arm = Bodies.rectangle(env.x + 5, env.y - 15, env.w * 1.3, 12, {
+                        isStatic: true,
+                        angle: env.angle || -0.6,
+                        render: { 
+                            sprite: {
+                                texture: this.woodPatterns.normal,
+                                xScale: (env.w * 1.3) / 128,
+                                yScale: 12 / 128
+                            }
+                        }
+                    });
+                    const pivot = Bodies.circle(env.x, env.y - 5, 6, {
+                        isStatic: true,
+                        render: { fillStyle: '#94a3b8' } // Steel bolt
+                    });
+                    Composite.add(this.world, [base, arm, pivot]);
                 } else {
                     // Standard static geometry (wall, slope)
                     const body = Bodies.rectangle(env.x, env.y, env.w, env.h, {
@@ -289,6 +313,30 @@ export class PhysicsEngine {
         });
         Composite.add(this.world, this.ground);
         
+        // Add King (Rey) - Multi-part high-fidelity shape
+        if (level.king) {
+            const head = Bodies.circle(level.king.x, level.king.y - 10, 15, { isStatic: true, label: 'king' });
+            const body = Bodies.rectangle(level.king.x, level.king.y + 15, 30, 40, { isStatic: true, label: 'king' });
+            // Crown peaks
+            const p1 = Bodies.polygon(level.king.x - 10, level.king.y - 25, 3, 8, { isStatic: true, label: 'king' });
+            const p2 = Bodies.polygon(level.king.x, level.king.y - 28, 3, 8, { isStatic: true, label: 'king' });
+            const p3 = Bodies.polygon(level.king.x + 10, level.king.y - 25, 3, 8, { isStatic: true, label: 'king' });
+            
+            const king = Body.create({
+                parts: [head, body, p1, p2, p3],
+                isStatic: true,
+                label: 'king',
+                render: { 
+                    fillStyle: '#f1c40f', // Gold
+                    strokeStyle: '#f39c12',
+                    lineWidth: 2
+                }
+            });
+            
+            this.kings.push(king);
+            Composite.add(this.world, king);
+        }
+
         this.setupCollisionEvents();
     }
 
@@ -500,7 +548,13 @@ export class PhysicsEngine {
 
     setupCollisionEvents() {
         Events.on(this.engine, 'collisionStart', (event) => {
-            // No longer failure if weight hits ground
+            const pairs = event.pairs;
+            pairs.forEach(pair => {
+                const labels = [pair.bodyA.label, pair.bodyB.label];
+                if (labels.includes('king') && labels.includes('weight')) {
+                    this.onFail("¡El Rey ha sido alcanzado! Misión fallida.");
+                }
+            });
         });
     }
 
