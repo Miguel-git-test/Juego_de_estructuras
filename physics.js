@@ -9,10 +9,12 @@ export class PhysicsEngine {
         this.onFail = onFail;
         this.beams = [];
         this.nodes = [];
-        this.weight = null;
+        this.brokenBeams = 0;
+        this.weights = [];
         this.targetBar = null;
         this.simulationRunning = false;
         this.ground = null;
+        this.extras = []; // Walls, cars, etc.
 
         // Custom renderer logic for technical look
         this.setupRenderer();
@@ -39,25 +41,106 @@ export class PhysicsEngine {
         Composite.clear(this.world);
         this.beams = [];
         this.nodes = [];
-        this.weight = null;
+        this.weights = [];
         this.targetBar = null;
         this.simulationRunning = false;
         this.engine.timing.timeScale = 1;
+        this.extras = [];
         Runner.stop(this.runner);
     }
 
     loadLevel(level) {
         this.clearWorld();
         this.currentLevel = level;
+        this.brokenBeams = 0;
 
-        // Add Anchors (Static nodes)
+        // Add Environment (Walls, Slopes, cars)
+        if (level.environment) {
+            level.environment.forEach(env => {
+                let body;
+                if (env.type === 'car') {
+                    // ... (existing car logic)
+                    const carBody = Bodies.rectangle(env.x, env.y, env.w, env.h, { 
+                        label: env.id,
+                        render: { fillStyle: '#34495e' }
+                    });
+                    const w1 = Bodies.circle(env.x - env.w/3, env.y + env.h/2, env.h/2, { render: { fillStyle: '#2c3e50' }});
+                    const w2 = Bodies.circle(env.x + env.w/3, env.y + env.h/2, env.h/2, { render: { fillStyle: '#2c3e50' }});
+                    const c1 = Constraint.create({ bodyA: carBody, bodyB: w1, pointA: { x: -env.w/3, y: env.h/2 }, stiffness: 0.1 });
+                    const c2 = Constraint.create({ bodyA: carBody, bodyB: w2, pointA: { x: env.w/3, y: env.h/2 }, stiffness: 0.1 });
+                    
+                    const composite = Composite.create();
+                    Composite.add(composite, [carBody, w1, w2, c1, c2]);
+                    Composite.add(this.world, composite);
+                    this.extras.push({ id: env.id, body: carBody });
+                } else if (env.type === 'bucket') {
+                    // U-shaped bucket
+                    const bottom = Bodies.rectangle(env.x, env.y + env.h/2, env.w, 10, { render: { fillStyle: '#95a5a6' }});
+                    const left = Bodies.rectangle(env.x - env.w/2, env.y, 10, env.h, { render: { fillStyle: '#95a5a6' }});
+                    const right = Bodies.rectangle(env.x + env.w/2, env.y, 10, env.h, { render: { fillStyle: '#95a5a6' }});
+                    
+                    const bucketBody = Bodies.rectangle(env.x, env.y, env.w, env.h, { isSensor: true, render: { visible: false } });
+                    const composite = Composite.create();
+                    Composite.add(composite, [bottom, left, right]);
+                    
+                    // Constrain them all together to a central static pivot (to allow tipping)
+                    const pivot = Bodies.circle(env.x, env.y, 5, { isStatic: true, render: { visible: false } });
+                    const multiBody = Body.create({
+                        parts: [bottom, left, right],
+                        label: env.id
+                    });
+                    
+                    const axle = Constraint.create({
+                        pointA: { x: env.x, y: env.y },
+                        bodyB: multiBody,
+                        stiffness: 1,
+                        length: 0,
+                        render: { visible: false }
+                    });
+                    
+                    Composite.add(this.world, [multiBody, axle]);
+                    this.extras.push({ id: env.id, body: multiBody });
+                } else {
+                    // Standard static geometry (wall, slope)
+                    body = Bodies.rectangle(env.x, env.y, env.w, env.h, {
+                        isStatic: true,
+                        angle: env.angle || 0,
+                        render: { fillStyle: '#2c3e50', strokeStyle: '#00f2ff', lineWidth: 1 }
+                    });
+                    Composite.add(this.world, body);
+                }
+            });
+        }
+
+        // Add Anchors
         level.anchors.forEach(anchor => {
+            let parentBody = null;
+            if (anchor.attachTo) {
+                const extra = this.extras.find(e => e.id === anchor.attachTo);
+                if (extra) parentBody = extra.body;
+            }
+
             const node = Bodies.circle(anchor.x, anchor.y, 10, {
-                isStatic: true,
+                isStatic: !parentBody, // Static if not attached to a moving car
                 render: { fillStyle: '#00f2ff', strokeStyle: '#00f2ff', lineWidth: 2 }
             });
             node.isAnchor = true;
             node.label = anchor.id;
+            
+            if (parentBody) {
+                // Attach node to car
+                const offset = Vector.sub(node.position, parentBody.position);
+                const joint = Constraint.create({
+                    bodyA: parentBody,
+                    bodyB: node,
+                    pointA: offset,
+                    stiffness: 1,
+                    length: 0,
+                    render: { visible: false }
+                });
+                Composite.add(this.world, joint);
+            }
+
             this.nodes.push(node);
             Composite.add(this.world, node);
         });
@@ -70,14 +153,32 @@ export class PhysicsEngine {
         });
         Composite.add(this.world, this.targetBar);
 
-        // Add Weight (Static until play)
-        this.weight = Bodies.circle(level.weight.x, level.weight.y, level.weight.radius, {
-            isStatic: true,
-            mass: level.weight.mass,
-            label: 'weight',
-            render: { fillStyle: '#ff4757', strokeStyle: '#fff', lineWidth: 2 }
+        // Add Weights (Single or Multiple)
+        const weightDataList = level.weights || (level.weight ? [level.weight] : []);
+        
+        weightDataList.forEach(wd => {
+            const weight = Bodies.circle(wd.x, wd.y, wd.radius, {
+                isStatic: true,
+                mass: wd.mass,
+                label: 'weight',
+                render: { fillStyle: wd.color || '#ff4757', strokeStyle: '#fff', lineWidth: 2 }
+            });
+            
+            if (wd.tether) {
+                // Pendulum support
+                const tether = Constraint.create({
+                    pointA: { x: wd.tether.x, y: wd.tether.y },
+                    bodyB: weight,
+                    stiffness: 1,
+                    length: wd.tether.length || Vector.magnitude(Vector.sub({x: wd.tether.x, y: wd.tether.y}, weight.position)),
+                    render: { strokeStyle: '#aaa', lineWidth: 2 }
+                });
+                Composite.add(this.world, tether);
+            }
+
+            this.weights.push(weight);
+            Composite.add(this.world, weight);
         });
-        Composite.add(this.world, this.weight);
 
         // Add Ground (invisible trigger)
         this.ground = Bodies.rectangle(window.innerWidth/2, level.groundY + 50, window.innerWidth, 100, {
@@ -163,8 +264,15 @@ export class PhysicsEngine {
                 Matter.Body.setStatic(n, false);
             }
         });
-        Matter.Body.setStatic(this.targetBar, false);
-        Matter.Body.setStatic(this.weight, false);
+        if (this.targetBar) Matter.Body.setStatic(this.targetBar, false);
+        this.weights.forEach(w => Matter.Body.setStatic(w, false));
+
+        // Tipping bucket logic: If any extra has 'tip' property
+        this.extras.forEach(extra => {
+             if (this.currentLevel.environment.find(e => e.id === extra.id && e.tip)) {
+                 Matter.Body.setAngularVelocity(extra.body, 0.15);
+             }
+        });
 
         Runner.run(this.runner, this.engine);
         
@@ -183,7 +291,6 @@ export class PhysicsEngine {
             const delta = Math.abs(length - beam.length);
             const stress = delta / beam.length;
 
-            // Color based on stress
             if (stress > 0.15) {
                 beam.render.strokeStyle = '#ff4757';
             } else if (stress > 0.05) {
@@ -192,9 +299,10 @@ export class PhysicsEngine {
                 beam.render.strokeStyle = '#2ed573';
             }
 
-            // Break if over limit
             if (stress > 0.3) {
                 this.breakBeam(beam);
+                this.brokenBeams++;
+                this.onFail("Se ha roto una pieza. ¡La estructura debe ser íntegra!");
             }
         });
     }
@@ -216,12 +324,11 @@ export class PhysicsEngine {
                 
                 // Weight hits bar
                 if (labels.includes('weight') && labels.includes('bar')) {
-                    // Success if weight stays on bar for 3 seconds?
-                    // Simplified: if it hits the bar and some time passes without hitting ground
                     setTimeout(() => {
-                        if (this.simulationRunning && !labels.includes('ground')) {
-                             // Check if weight is still above ground
-                             if (this.weight.position.y < this.currentLevel.groundY) {
+                        if (this.simulationRunning) {
+                             // Check if any weight is still above ground
+                             const safeWeights = this.weights.every(w => w.position.y < this.currentLevel.groundY);
+                             if (safeWeights) {
                                 this.onWin();
                              }
                         }

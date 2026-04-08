@@ -1,41 +1,97 @@
-export const LEVELS = [
-    {
-        id: 1,
-        title: "FUNDAMENTOS",
-        hint: "Construye un soporte básico para evitar que el peso caiga al vacío.",
-        maxBeams: 5,
-        anchors: [
-            { id: 'a1', x: 200, y: 500 },
-            { id: 'a2', x: 600, y: 500 }
-        ],
-        bar: { x: 400, y: 400, width: 200, height: 20 },
-        weight: { x: 400, y: 100, radius: 30, mass: 10 },
-        groundY: 650
-    },
-    {
-        id: 2,
-        title: "TRIANGULACIÓN",
-        hint: "Los triángulos son la forma más fuerte en ingeniería.",
-        maxBeams: 8,
-        anchors: [
-            { id: 'a1', x: 150, y: 550 },
-            { id: 'a2', x: 650, y: 550 }
-        ],
-        bar: { x: 400, y: 350, width: 250, height: 20 },
-        weight: { x: 400, y: 50, radius: 40, mass: 20 },
-        groundY: 650
-    },
-    {
-        id: 3,
-        title: "EL PUENTE",
-        hint: "Crea una estructura que se extienda para alcanzar el centro.",
-        maxBeams: 12,
-        anchors: [
-            { id: 'a1', x: 100, y: 450 },
-            { id: 'a2', x: 700, y: 450 }
-        ],
-        bar: { x: 400, y: 400, width: 300, height: 20 },
-        weight: { x: 400, y: 0, radius: 50, mass: 50 },
-        groundY: 650
-    }
+const archetypes = [
+    { name: "PARED", type: "wall" },
+    { name: "COCHE", type: "car" },
+    { name: "EMBUDO", type: "slope" },
+    { name: "TORRE", type: "anchor" },
+    { name: "PÉNDULO", type: "tether" },
+    { name: "LLUVIA", type: "rain" },
+    { name: "PUENTE", type: "anchor" }
 ];
+
+function generateLevels() {
+    const levels = [];
+    for (let i = 1; i <= 100; i++) {
+        const arch = archetypes[(i - 1) % archetypes.length];
+        const difficulty = i / 100;
+        const maxBeams = Math.max(3, 15 - Math.floor(i / 10));
+        const mass = 10 + Math.floor(i * 1.5);
+        
+        let level = {
+            id: i,
+            title: `${arch.name} ${Math.ceil(i/archetypes.length)}`,
+            hint: `Desafío de dificultad ${Math.ceil(i/10)}.`,
+            maxBeams: maxBeams,
+            groundY: 650,
+            anchors: [],
+            environment: []
+        };
+
+        // Specific logic based on archetype
+        switch (arch.type) {
+            case 'wall':
+                level.environment = [{ type: 'wall', x: 50, y: 300, w: 100, h: 600 }];
+                level.anchors = [
+                    { id: 'a1', x: 100, y: 200 + Math.sin(i) * 100 },
+                    { id: 'a2', x: 100, y: 400 + Math.cos(i) * 100 }
+                ];
+                level.bar = { x: 300 + Math.sin(i) * 50, y: 350, width: 80 - (i%20), height: 20 };
+                level.weight = { x: 300 + Math.sin(i) * 50, y: 50, radius: 25 + (i%15), mass: mass };
+                break;
+            
+            case 'car':
+                const carX = 200 + (i % 40) * 10;
+                level.environment = [{ id: 'car', type: 'car', x: carX, y: 550, w: 200, h: 40 }];
+                level.anchors = [
+                    { id: 'a1', x: carX - 70, y: 530, attachTo: 'car' },
+                    { id: 'a2', x: carX + 70, y: 530, attachTo: 'car' }
+                ];
+                level.bar = { x: carX, y: 350, width: 150 - (i%30), height: 20 };
+                level.weight = { x: carX + Math.sin(i) * 30, y: 50, radius: 30, mass: mass };
+                break;
+
+            case 'slope':
+                const slopeAngle = 0.2 + (i % 5) * 0.1;
+                level.environment = [
+                    { type: 'slope', x: 200, y: 550, w: 300, h: 20, angle: -slopeAngle },
+                    { type: 'slope', x: 600, y: 550, w: 300, h: 20, angle: slopeAngle }
+                ];
+                level.anchors = [{ id: 'a1', x: 100, y: 400 }, { id: 'a2', x: 700, y: 400 }];
+                level.bar = { x: 400, y: 500, width: 100, height: 20 };
+                level.weight = { x: 400 + (i%2==0?40:-40), y: 0, radius: 40, mass: mass };
+                break;
+
+            case 'tether':
+                level.anchors = [{ id: 'a1', x: 300 + Math.sin(i)*50, y: 550 }, { id: 'a2', x: 500 + Math.cos(i)*50, y: 550 }];
+                level.bar = { x: 400, y: 400, width: 40, height: 40 };
+                level.weight = { 
+                    x: 100 + (i%20)*5, y: 200, radius: 35, mass: mass,
+                    tether: { x: 400, y: -200 }
+                };
+                break;
+
+            case 'rain':
+                level.environment = [{ id: 'bucket', type: 'bucket', x: 400, y: 150, w: 200, h: 40, tip: true }];
+                level.anchors = [{ id: 'a1', x: 200, y: 550 }, { id: 'a2', x: 600, y: 550 }];
+                level.bar = { x: 400, y: 500, width: 350, height: 20 };
+                level.weights = Array.from({ length: 10 + Math.floor(i/5) }, (_, j) => ({
+                    x: 350 + (j % 5) * 20,
+                    y: 50 + Math.floor(j / 5) * 20,
+                    radius: 10, mass: 4, color: '#7f8c8d'
+                }));
+                break;
+
+            default: // anchor/bridge/tower
+                const gap = 200 + (i % 300);
+                level.anchors = [{ id: 'a1', x: 400 - gap/2, y: 500 }, { id: 'a2', x: 400 + gap/2, y: 500 }];
+                level.bar = { x: 400, y: 400 - (i%50), width: 100 + (i%100), height: 20 };
+                level.weight = { x: 400, y: 50, radius: 30 + (i%20), mass: mass };
+                level.hint = "Crea un puente arqueado para máxima resistencia.";
+                break;
+        }
+
+        levels.push(level);
+    }
+    return levels;
+}
+
+export const LEVELS = generateLevels();

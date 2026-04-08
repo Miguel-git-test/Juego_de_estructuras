@@ -5,7 +5,7 @@ class Game {
     constructor() {
         this.canvas = document.getElementById('game-canvas');
         this.currentLevelIndex = 0;
-        this.physics = new PhysicsEngine(this.canvas, () => this.handleWin(), () => this.handleFail());
+        this.physics = new PhysicsEngine(this.canvas, () => this.handleWin(), (msg) => this.handleFail(msg));
         
         this.tool = 'build'; // 'build', 'delete'
         this.beamsUsed = 0;
@@ -14,6 +14,7 @@ class Game {
         this.mousePoint = { x: 0, y: 0 };
 
         this.initUI();
+        this.initLevelSelector();
         this.loadLevel(0);
         this.animate();
 
@@ -24,6 +25,10 @@ class Game {
         // Toolbar tools
         document.getElementById('btn-build').onclick = () => this.setTool('build');
         document.getElementById('btn-delete').onclick = () => this.setTool('delete');
+        
+        // Navigation
+        document.getElementById('btn-levels').onclick = () => this.showLevelSelector();
+        document.getElementById('btn-close-selector').onclick = () => this.hideLevelSelector();
         
         // Actions
         document.getElementById('btn-play').onclick = () => this.startSimulation();
@@ -56,6 +61,31 @@ class Game {
         this.tool = tool;
         document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
         document.getElementById(`btn-${tool}`).classList.add('active');
+    }
+
+    initLevelSelector() {
+        const grid = document.getElementById('level-grid');
+        LEVELS.forEach((level, index) => {
+            const card = document.createElement('div');
+            card.className = 'level-card';
+            card.innerHTML = `
+                <span class="num">Nivel ${level.id}</span>
+                <span class="title">${level.title}</span>
+            `;
+            card.onclick = () => {
+                this.loadLevel(index);
+                this.hideLevelSelector();
+            };
+            grid.appendChild(card);
+        });
+    }
+
+    showLevelSelector() {
+        document.getElementById('level-selector').classList.remove('hidden');
+    }
+
+    hideLevelSelector() {
+        document.getElementById('level-selector').classList.add('hidden');
     }
 
     loadLevel(index) {
@@ -139,10 +169,15 @@ class Game {
     }
 
     startSimulation() {
+        if (this.beamsUsed === 0) {
+            alert("¡Debes colocar al menos un palo antes de simular!");
+            return;
+        }
         this.physics.startSimulation();
         document.getElementById('btn-play').disabled = true;
         document.getElementById('toolbar').style.opacity = '0.3';
         document.getElementById('toolbar').style.pointerEvents = 'none';
+        document.getElementById('btn-levels').disabled = true;
     }
 
     retryLevel() {
@@ -150,6 +185,7 @@ class Game {
         document.getElementById('btn-play').disabled = false;
         document.getElementById('toolbar').style.opacity = '1';
         document.getElementById('toolbar').style.pointerEvents = 'auto';
+        document.getElementById('btn-levels').disabled = false;
     }
 
     nextLevel() {
@@ -158,13 +194,16 @@ class Game {
         document.getElementById('btn-play').disabled = false;
         document.getElementById('toolbar').style.opacity = '1';
         document.getElementById('toolbar').style.pointerEvents = 'auto';
+        document.getElementById('btn-levels').disabled = false;
     }
 
     handleWin() {
+        if (this.physics.brokenBeams > 0) return; // Physics should have triggered fail
         document.getElementById('win-screen').classList.remove('hidden');
     }
 
-    handleFail() {
+    handleFail(message) {
+        document.getElementById('fail-message').innerText = message || "El peso ha tocado el suelo o la estructura ha colapsado.";
         document.getElementById('fail-screen').classList.remove('hidden');
     }
 
