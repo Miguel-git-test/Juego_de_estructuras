@@ -1,4 +1,4 @@
-const { Engine, Render, Runner, Bodies, Composite, Constraint, Mouse, MouseConstraint, Vector, Events } = Matter;
+const { Engine, Render, Runner, Bodies, Body, Composite, Constraint, Mouse, MouseConstraint, Vector, Events } = Matter;
 
 export class PhysicsEngine {
     constructor(canvas, onWin, onFail) {
@@ -63,6 +63,8 @@ export class PhysicsEngine {
                     const carBody = Bodies.rectangle(env.x, env.y, env.w, env.h, { 
                         label: env.id,
                         collisionFilter: { group: Matter.Body.nextGroup(true) },
+                        slop: 0.1,
+                        frictionStatic: 10,
                         render: { fillStyle: '#34495e' }
                     });
                     
@@ -70,12 +72,16 @@ export class PhysicsEngine {
                     const wheelY = env.y + env.h/2 + wheelRadius/2;
                     
                     const w1 = Bodies.circle(env.x - env.w/3, wheelY, wheelRadius, { 
-                        friction: 0.8,
+                        friction: 0.9,
+                        frictionStatic: 10,
+                        slop: 0.1,
                         collisionFilter: { group: carBody.collisionFilter.group },
                         render: { fillStyle: '#2c3e50' }
                     });
                     const w2 = Bodies.circle(env.x + env.w/3, wheelY, wheelRadius, { 
-                        friction: 0.8,
+                        friction: 0.9,
+                        frictionStatic: 10,
+                        slop: 0.1,
                         collisionFilter: { group: carBody.collisionFilter.group },
                         render: { fillStyle: '#2c3e50' }
                     });
@@ -83,13 +89,13 @@ export class PhysicsEngine {
                     const axle1 = Constraint.create({ 
                         bodyA: carBody, bodyB: w1, 
                         pointA: { x: -env.w/3, y: env.h/2 }, 
-                        stiffness: 0.8, length: 0,
+                        stiffness: 1, length: 0,
                         render: { visible: false }
                     });
                     const axle2 = Constraint.create({ 
                         bodyA: carBody, bodyB: w2, 
                         pointA: { x: env.w/3, y: env.h/2 }, 
-                        stiffness: 0.8, length: 0,
+                        stiffness: 1, length: 0,
                         render: { visible: false }
                     });
                     
@@ -101,27 +107,23 @@ export class PhysicsEngine {
                     const left = Bodies.rectangle(env.x - env.w/2, env.y, 10, env.h, { render: { fillStyle: '#95a5a6' }});
                     const right = Bodies.rectangle(env.x + env.w/2, env.y, 10, env.h, { render: { fillStyle: '#95a5a6' }});
                     
-                    const bucketBody = Bodies.rectangle(env.x, env.y, env.w, env.h, { isSensor: true, render: { visible: false } });
-                    const composite = Composite.create();
-                    Composite.add(composite, [bottom, left, right]);
-                    
                     // Constrain them all together to a central static pivot (to allow tipping)
                     const pivot = Bodies.circle(env.x, env.y, 5, { isStatic: true, render: { visible: false } });
-                    const multiBody = Body.create({
+                    const bucketBody = Body.create({
                         parts: [bottom, left, right],
                         label: env.id
                     });
                     
                     const axle = Constraint.create({
                         pointA: { x: env.x, y: env.y },
-                        bodyB: multiBody,
+                        bodyB: bucketBody,
                         stiffness: 1,
                         length: 0,
                         render: { visible: false }
                     });
                     
-                    Composite.add(this.world, [multiBody, axle]);
-                    this.extras.push({ id: env.id, body: multiBody });
+                    Composite.add(this.world, [bucketBody, axle]);
+                    this.extras.push({ id: env.id, body: bucketBody });
                 } else if (env.type === 'cannon') {
                     // Static cannon barrel
                     const barrel = Bodies.rectangle(env.x, env.y, env.w, env.h, {
@@ -218,6 +220,8 @@ export class PhysicsEngine {
         this.ground = Bodies.rectangle(window.innerWidth/2, level.groundY + 25, window.innerWidth, 50, {
             isStatic: true,
             label: 'ground',
+            friction: 1,
+            frictionStatic: 10,
             render: { fillStyle: '#2c3e50', strokeStyle: '#34495e', lineWidth: 2 }
         });
         Composite.add(this.world, this.ground);
@@ -236,8 +240,8 @@ export class PhysicsEngine {
         const beam = Constraint.create({
             bodyA: node1,
             bodyB: node2,
-            stiffness: 0.9,
-            damping: 0.1,
+            stiffness: 1,
+            damping: 0.02, // Lubricated feel
             render: {
                 strokeStyle: '#888',
                 lineWidth: 8,
@@ -305,12 +309,13 @@ export class PhysicsEngine {
             }
         });
 
-        // Set a timer for victory: if after 4s no fail was triggered, it's a win
+        // Set a timer for victory
+        const timer = this.currentLevel.victoryTimeout || 4000;
         this.victoryTimeout = setTimeout(() => {
             if (this.simulationRunning) {
                 if (this.brokenBeams === 0) this.onWin();
             }
-        }, 4000);
+        }, timer);
 
         // Tipping bucket logic
         this.extras.forEach(extra => {

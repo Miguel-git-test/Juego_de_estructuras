@@ -25,7 +25,8 @@ function generateLevels() {
             groundY: 650,
             anchors: [],
             environment: [],
-            checkpoints: []
+            checkpoints: [],
+            victoryTimeout: arch.type === 'rain' ? 6000 : 4000
         };
 
         // Specific logic based on archetype
@@ -47,11 +48,13 @@ function generateLevels() {
                 break;
             
             case 'car':
-                const carY = 600;
+                const carHeight = 30;
+                const wheelsRadius = carHeight * 0.6;
+                const carY = 650 - wheelsRadius - carHeight/2; // Perfectly on ground
                 const distBetween = 200 + (i % 100);
                 level.environment = [
-                    { id: 'car1', type: 'car', x: 400 - distBetween/2, y: carY, w: 120, h: 30 },
-                    { id: 'car2', type: 'car', x: 400 + distBetween/2, y: carY, w: 120, h: 30 }
+                    { id: 'car1', type: 'car', x: 400 - distBetween/2, y: carY, w: 120, h: carHeight },
+                    { id: 'car2', type: 'car', x: 400 + distBetween/2, y: carY, w: 120, h: carHeight }
                 ];
                 level.anchors = [
                     { id: 'a1', x: 400 - distBetween/2, y: carY - 15, attachTo: 'car1' },
@@ -87,14 +90,15 @@ function generateLevels() {
                 break;
 
             case 'rain':
-                level.environment = [{ id: 'bucket', type: 'bucket', x: 400, y: 150, w: 200, h: 40, tip: true }];
+                level.environment = [{ id: 'bucket', type: 'bucket', x: 400, y: 120, w: 220, h: 40, tip: true }];
                 level.anchors = [{ id: 'a1', x: 200, y: 550 }, { id: 'a2', x: 600, y: 550 }];
                 level.checkpoints = [{ x: 300, y: 400 }, { x: 500, y: 400 }];
-                level.weights = Array.from({ length: 15 + Math.floor(i/5) }, (_, j) => ({
-                    x: 350 + (j % 5) * 20,
-                    y: 50 + Math.floor(j / 5) * 20,
-                    radius: 12, mass: 6, color: '#7f8c8d'
+                level.weights = Array.from({ length: 25 + Math.floor(i/4) }, (_, j) => ({
+                    x: 340 + (j % 6) * 20,
+                    y: 20 + Math.floor(j / 6) * 15,
+                    radius: 7, mass: 4, color: '#95a5a6'
                 }));
+                level.hint = "¡Iron Rain! Crea un caparazón sólido para proteger tus cimientos.";
                 break;
 
             default: // Bridge/Tower/Wall
