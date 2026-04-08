@@ -229,3 +229,15 @@ button:active {
 .out-of-beams {
     animation: pulse-red 0.5s infinite;
 }
+
+#version-tag {
+    position: fixed;
+    bottom: 5px;
+    right: 10px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    opacity: 0.15;
+    pointer-events: none;
+    color: var(--text-color);
+    z-index: 1000;
+}
