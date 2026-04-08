@@ -93,7 +93,14 @@ class Game {
             if (this.beamsUsed >= level.maxBeams) return;
             
             this.drawing = true;
-            this.startPoint = { x, y };
+            
+            // Snap the start point to the nearest node if available
+            const nearest = this.physics.findNearestNode({ x, y });
+            if (nearest) {
+                this.startPoint = { x: nearest.position.x, y: nearest.position.y };
+            } else {
+                this.startPoint = { x, y };
+            }
         } else if (this.tool === 'delete') {
             this.deleteAt(x, y);
         }
@@ -180,10 +187,35 @@ class Game {
             // However, Matter.Render runs its own loop.
             // We'll use Matter.js Events to draw the preview.
             Matter.Events.on(this.physics.render, 'afterRender', () => {
+                const ctx = this.canvas.getContext('2d');
+                
+                // Highlight the node the mouse is currently snapping to
+                const nearest = this.physics.findNearestNode(this.mousePoint);
+                if (nearest) {
+                    ctx.beginPath();
+                    ctx.arc(nearest.position.x, nearest.position.y, 15, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(0, 242, 255, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // Technical crosshair
+                    ctx.moveTo(nearest.position.x - 20, nearest.position.y);
+                    ctx.lineTo(nearest.position.x + 20, nearest.position.y);
+                    ctx.moveTo(nearest.position.x, nearest.position.y - 20);
+                    ctx.lineTo(nearest.position.x, nearest.position.y + 20);
+                    ctx.stroke();
+                }
+
                 if (this.drawing && this.startPoint) {
                     ctx.beginPath();
                     ctx.moveTo(this.startPoint.x, this.startPoint.y);
-                    ctx.lineTo(this.mousePoint.x, this.mousePoint.y);
+                    
+                    // If near a node, snap the preview end point too
+                    const endSnap = this.physics.findNearestNode(this.mousePoint);
+                    const targetX = endSnap ? endSnap.position.x : this.mousePoint.x;
+                    const targetY = endSnap ? endSnap.position.y : this.mousePoint.y;
+                    
+                    ctx.lineTo(targetX, targetY);
                     ctx.strokeStyle = 'rgba(0, 242, 255, 0.5)';
                     ctx.setLineDash([5, 5]);
                     ctx.lineWidth = 4;

@@ -95,8 +95,8 @@ export class PhysicsEngine {
         const node1 = this.getOrCreateNode(p1);
         const node2 = this.getOrCreateNode(p2);
 
-        // Don't add if already connected
-        if (this.areConnected(node1, node2)) return null;
+        // Don't add if nodes are the same or already connected
+        if (node1 === node2 || this.areConnected(node1, node2)) return null;
 
         const beam = Constraint.create({
             bodyA: node1,
@@ -117,8 +117,8 @@ export class PhysicsEngine {
     }
 
     getOrCreateNode(point) {
-        // Snap to existing nodes within 20px
-        const existing = this.nodes.find(n => Vector.magnitude(Vector.sub(n.position, point)) < 25);
+        // Snap to existing nodes within 40px
+        const existing = this.findNearestNode(point, 40);
         if (existing) return existing;
 
         const node = Bodies.circle(point.x, point.y, 8, {
@@ -129,6 +129,21 @@ export class PhysicsEngine {
         this.nodes.push(node);
         Composite.add(this.world, node);
         return node;
+    }
+
+    findNearestNode(point, threshold = 40) {
+        let nearest = null;
+        let minDist = threshold;
+
+        this.nodes.forEach(node => {
+            const dist = Vector.magnitude(Vector.sub(node.position, point));
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = node;
+            }
+        });
+
+        return nearest;
     }
 
     areConnected(n1, n2) {
