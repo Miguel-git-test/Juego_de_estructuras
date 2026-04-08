@@ -59,19 +59,41 @@ export class PhysicsEngine {
             level.environment.forEach(env => {
                 let body;
                 if (env.type === 'car') {
-                    // ... (existing car logic)
+                    // Refined car: Body + 2 Wheels with axles
                     const carBody = Bodies.rectangle(env.x, env.y, env.w, env.h, { 
                         label: env.id,
+                        collisionFilter: { group: Matter.Body.nextGroup(true) },
                         render: { fillStyle: '#34495e' }
                     });
-                    const w1 = Bodies.circle(env.x - env.w/3, env.y + env.h/2, env.h/2, { render: { fillStyle: '#2c3e50' }});
-                    const w2 = Bodies.circle(env.x + env.w/3, env.y + env.h/2, env.h/2, { render: { fillStyle: '#2c3e50' }});
-                    const c1 = Constraint.create({ bodyA: carBody, bodyB: w1, pointA: { x: -env.w/3, y: env.h/2 }, stiffness: 0.1 });
-                    const c2 = Constraint.create({ bodyA: carBody, bodyB: w2, pointA: { x: env.w/3, y: env.h/2 }, stiffness: 0.1 });
                     
-                    const composite = Composite.create();
-                    Composite.add(composite, [carBody, w1, w2, c1, c2]);
-                    Composite.add(this.world, composite);
+                    const wheelRadius = env.h * 0.6;
+                    const wheelY = env.y + env.h/2 + wheelRadius/2;
+                    
+                    const w1 = Bodies.circle(env.x - env.w/3, wheelY, wheelRadius, { 
+                        friction: 0.8,
+                        collisionFilter: { group: carBody.collisionFilter.group },
+                        render: { fillStyle: '#2c3e50' }
+                    });
+                    const w2 = Bodies.circle(env.x + env.w/3, wheelY, wheelRadius, { 
+                        friction: 0.8,
+                        collisionFilter: { group: carBody.collisionFilter.group },
+                        render: { fillStyle: '#2c3e50' }
+                    });
+
+                    const axle1 = Constraint.create({ 
+                        bodyA: carBody, bodyB: w1, 
+                        pointA: { x: -env.w/3, y: env.h/2 }, 
+                        stiffness: 0.8, length: 0,
+                        render: { visible: false }
+                    });
+                    const axle2 = Constraint.create({ 
+                        bodyA: carBody, bodyB: w2, 
+                        pointA: { x: env.w/3, y: env.h/2 }, 
+                        stiffness: 0.8, length: 0,
+                        render: { visible: false }
+                    });
+                    
+                    Composite.add(this.world, [carBody, w1, w2, axle1, axle2]);
                     this.extras.push({ id: env.id, body: carBody });
                 } else if (env.type === 'bucket') {
                     // U-shaped bucket
@@ -192,11 +214,11 @@ export class PhysicsEngine {
             }
         });
 
-        // Add Ground (invisible trigger)
-        this.ground = Bodies.rectangle(window.innerWidth/2, level.groundY + 50, window.innerWidth, 100, {
+        // Add Ground (Physical Solid Ground)
+        this.ground = Bodies.rectangle(window.innerWidth/2, level.groundY + 25, window.innerWidth, 50, {
             isStatic: true,
-            isSensor: true,
-            label: 'ground'
+            label: 'ground',
+            render: { fillStyle: '#2c3e50', strokeStyle: '#34495e', lineWidth: 2 }
         });
         Composite.add(this.world, this.ground);
         
@@ -286,8 +308,7 @@ export class PhysicsEngine {
         // Set a timer for victory: if after 4s no fail was triggered, it's a win
         this.victoryTimeout = setTimeout(() => {
             if (this.simulationRunning) {
-                const someWeightOutside = this.weights.some(w => w.position.y > this.currentLevel.groundY);
-                if (!someWeightOutside) this.onWin();
+                if (this.brokenBeams === 0) this.onWin();
             }
         }, 4000);
 
@@ -338,15 +359,7 @@ export class PhysicsEngine {
 
     setupCollisionEvents() {
         Events.on(this.engine, 'collisionStart', (event) => {
-            event.pairs.forEach(pair => {
-                const labels = [pair.bodyA.label, pair.bodyB.label];
-                
-                // Weight hits ground -> Fail
-                if (labels.includes('weight') && labels.includes('ground')) {
-                    clearTimeout(this.victoryTimeout);
-                    this.onFail();
-                }
-            });
+            // No longer failure if weight hits ground
         });
     }
 

@@ -5,6 +5,7 @@ const archetypes = [
     { name: "TORRE", type: "anchor" },
     { name: "PÉNDULO", type: "tether" },
     { name: "LLUVIA", type: "rain" },
+    { name: "CAÑÓN", type: "cannon" },
     { name: "PUENTE", type: "anchor" }
 ];
 
@@ -14,7 +15,7 @@ function generateLevels() {
         const arch = archetypes[(i - 1) % archetypes.length];
         const difficulty = i / 100;
         const maxBeams = Math.max(3, 15 - Math.floor(i / 10));
-        const mass = 10 + Math.floor(i * 1.5);
+        const mass = 15 + Math.floor(i * 2);
         
         let level = {
             id: i,
@@ -43,15 +44,26 @@ function generateLevels() {
                     radius: 20, mass: mass,
                     velocity: { x: side * (10 + i/5), y: -5 + (i%10) }
                 }];
-                level.hint = "Bloquea el proyectil. ¡La estructura debe pasar por el punto indicado!";
                 break;
             
             case 'car':
-                const carX = 200 + (i % 40) * 10;
-                level.environment = [{ id: 'car', type: 'car', x: carX, y: 550, w: 200, h: 40 }];
-                level.anchors = [{ id: 'a1', x: carX - 70, y: 530, attachTo: 'car' }, { id: 'a2', x: carX + 70, y: 530, attachTo: 'car' }];
-                level.checkpoints = [{ x: carX, y: 400 }];
-                level.weight = { x: carX + Math.sin(i) * 30, y: 50, radius: 30, mass: mass };
+                const carY = 600;
+                const distBetween = 200 + (i % 100);
+                level.environment = [
+                    { id: 'car1', type: 'car', x: 400 - distBetween/2, y: carY, w: 120, h: 30 },
+                    { id: 'car2', type: 'car', x: 400 + distBetween/2, y: carY, w: 120, h: 30 }
+                ];
+                level.anchors = [
+                    { id: 'a1', x: 400 - distBetween/2, y: carY - 15, attachTo: 'car1' },
+                    { id: 'a2', x: 400 + distBetween/2, y: carY - 15, attachTo: 'car2' }
+                ];
+                if (i > 50) { // Add more anchors later
+                    level.anchors.push({ id: 'a3', x: 400 - distBetween/2 + 30, y: carY - 15, attachTo: 'car1' });
+                    level.anchors.push({ id: 'a4', x: 400 + distBetween/2 - 30, y: carY - 15, attachTo: 'car2' });
+                }
+                level.checkpoints = [{ x: 400, y: 400 }];
+                level.weight = { x: 400, y: 50, radius: 35, mass: mass };
+                level.hint = "¡Une ambos coches! Si la estructura no es sólida, se separarán.";
                 break;
 
             case 'slope':
@@ -78,10 +90,10 @@ function generateLevels() {
                 level.environment = [{ id: 'bucket', type: 'bucket', x: 400, y: 150, w: 200, h: 40, tip: true }];
                 level.anchors = [{ id: 'a1', x: 200, y: 550 }, { id: 'a2', x: 600, y: 550 }];
                 level.checkpoints = [{ x: 300, y: 400 }, { x: 500, y: 400 }];
-                level.weights = Array.from({ length: 10 + Math.floor(i/5) }, (_, j) => ({
+                level.weights = Array.from({ length: 15 + Math.floor(i/5) }, (_, j) => ({
                     x: 350 + (j % 5) * 20,
                     y: 50 + Math.floor(j / 5) * 20,
-                    radius: 10, mass: 4, color: '#7f8c8d'
+                    radius: 12, mass: 6, color: '#7f8c8d'
                 }));
                 break;
 

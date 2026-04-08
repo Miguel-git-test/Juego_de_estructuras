@@ -25,9 +25,10 @@ Este juego es una **PWA (Progressive Web App)**, lo que significa que puedes ins
 
 ## 🕹️ Cómo Jugar
 - **Dibujar**: Toca y arrastra entre los puntos azules (anclajes) o nodos creados para poner un palo.
-- **Borrar**: Usa la herramienta de la papelera para quitar palos si te equivocas.
-- **Simular**: Pulsa el botón verde de "Simular" para soltar el peso.
-- **Estrés**: Si los palos se ponen rojos, ¡están a punto de romperse!
+- **Puntos de Paso**: Tu estructura **debe pasar por todos los anillos fantasma** para poder simular.
+- **Borrar**: Usa la herramienta de la papelera para quitar palos. Ahora los palos se iluminan en rojo al pasar por encima.
+- **Simular**: Pulsa el botón verde para soltar el peso o disparar el cañón.
+- **Objetivo**: Ganas si tu estructura **no se rompe** después del impacto. No importa si el peso cae al suelo, ¡lo único que importa es que tu obra de ingeniería aguante íntegra!
 
 ## 🛠️ Tecnologías
 - **Matter.js**: Motor de física 2D de alto rendimiento.
