@@ -21,6 +21,39 @@ export class PhysicsEngine {
         
         // Runner
         this.runner = Runner.create();
+        
+        // Generate procedural wood patterns for different stress levels
+        this.woodPatterns = {
+            normal: this.createWoodPattern('#a16207', '#713f12').toDataURL(),
+            stressed: this.createWoodPattern('#f59e0b', '#78350f').toDataURL(),
+            danger: this.createWoodPattern('#f43f5e', '#450a0a').toDataURL()
+        };
+    }
+
+    createWoodPattern(baseColor, grainColor) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        
+        // Base wood color
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(0, 0, 128, 128);
+        
+        // Add grain lines
+        ctx.strokeStyle = grainColor;
+        ctx.globalAlpha = 0.4;
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 20; i++) {
+            const y = Math.random() * 128;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(40, y + 10, 80, y - 10, 128, y + 5);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+        
+        return canvas;
     }
 
     setupRenderer() {
@@ -125,19 +158,45 @@ export class PhysicsEngine {
                     Composite.add(this.world, [bucketBody, axle]);
                     this.extras.push({ id: env.id, body: bucketBody });
                 } else if (env.type === 'cannon') {
-                    // Static cannon barrel
+                    // Realistic Cannon: Barrel + Carriage
                     const barrel = Bodies.rectangle(env.x, env.y, env.w, env.h, {
                         isStatic: true,
                         angle: env.angle || 0,
-                        render: { fillStyle: '#1e272e', strokeStyle: '#485460', lineWidth: 2 }
+                        label: 'cannon-barrel',
+                        render: { 
+                            fillStyle: '#1e293b',
+                            strokeStyle: '#0f172a',
+                            lineWidth: 3
+                        }
                     });
-                    Composite.add(this.world, barrel);
+                    
+                    // Add carriage (wheels/base) for visual realism
+                    const carriage = Bodies.rectangle(env.x, env.y + env.h, env.w * 0.8, 24, {
+                        isStatic: true,
+                        render: { 
+                            fillStyle: '#451a03',
+                            strokeStyle: '#2d1102',
+                            lineWidth: 2
+                        }
+                    });
+                    
+                    // Add a wheel
+                    const wheel = Bodies.circle(env.x - env.w/3, env.y + env.h + 10, 15, {
+                        isStatic: true,
+                        render: { 
+                            fillStyle: '#1e293b',
+                            strokeStyle: '#451a03',
+                            lineWidth: 4
+                        }
+                    });
+                    
+                    Composite.add(this.world, [barrel, carriage, wheel]);
                 } else {
                     // Standard static geometry (wall, slope)
-                    body = Bodies.rectangle(env.x, env.y, env.w, env.h, {
+                    const body = Bodies.rectangle(env.x, env.y, env.w, env.h, {
                         isStatic: true,
                         angle: env.angle || 0,
-                        render: { fillStyle: '#2c3e50', strokeStyle: '#00f2ff', lineWidth: 1 }
+                        render: { fillStyle: '#1e293b', strokeStyle: '#334155', lineWidth: 2 }
                     });
                     Composite.add(this.world, body);
                 }
@@ -154,7 +213,7 @@ export class PhysicsEngine {
 
             const node = Bodies.circle(anchor.x, anchor.y, 10, {
                 isStatic: !parentBody, // Static if not attached to a moving car
-                render: { fillStyle: '#00f2ff', strokeStyle: '#00f2ff', lineWidth: 2 }
+                render: { fillStyle: '#38bdf8', strokeStyle: '#0f172a', lineWidth: 2 }
             });
             node.isAnchor = true;
             node.label = anchor.id;
@@ -192,7 +251,11 @@ export class PhysicsEngine {
                 isStatic: true,
                 mass: wd.mass,
                 label: 'weight',
-                render: { fillStyle: wd.color || '#ff4757', strokeStyle: '#fff', lineWidth: 2 }
+                render: { 
+                    fillStyle: wd.color || '#475569', 
+                    strokeStyle: '#0f172a', 
+                    lineWidth: 2 
+                }
             });
             
             if (wd.tether) {
@@ -237,22 +300,86 @@ export class PhysicsEngine {
         // Don't add if nodes are the same or already connected
         if (node1 === node2 || this.areConnected(node1, node2)) return null;
 
+        const length = Vector.magnitude(Vector.sub(node1.position, node2.position));
+        const angle = Math.atan2(node2.position.y - node1.position.y, node2.position.x - node1.position.x);
+        
+        // Physical Collision Hull
+        const collisionBody = Bodies.rectangle(
+            (node1.position.x + node2.position.x) / 2,
+            (node1.position.y + node2.position.y) / 2,
+            length,
+            14, // Slightly thicker for volume
+            {
+                collisionFilter: { group: -2, mask: 0xFFFFFFFF ^ 2 },
+                render: { 
+                    sprite: {
+                        texture: this.woodPatterns.normal,
+                        xScale: length / 128,
+                        yScale: 14 / 128
+                    }
+                },
+                isStatic: true,
+                friction: 0.8
+            }
+        );
+
+        // Pin the hull to the nodes so it transfers forces
+        const pin1 = Constraint.create({
+            bodyA: node1,
+            bodyB: collisionBody,
+            pointA: { x: 0, y: 0 },
+            pointB: { x: -length/2, y: 0 },
+            stiffness: 1,
+            length: 0,
+            render: { visible: false }
+        });
+
+        const pin2 = Constraint.create({
+            bodyA: node2,
+            bodyB: collisionBody,
+            pointA: { x: 0, y: 0 },
+            pointB: { x: length/2, y: 0 },
+            stiffness: 1,
+            length: 0,
+            render: { visible: false }
+        });
+
         const beam = Constraint.create({
             bodyA: node1,
             bodyB: node2,
             stiffness: 1,
-            damping: 0.02, // Lubricated feel
-            render: {
-                strokeStyle: '#888',
-                lineWidth: 8,
-                type: 'line'
-            }
+            damping: 0.05,
+            render: { visible: false }
         });
         
         beam.isBeam = true;
+        beam.collisionBody = collisionBody;
         this.beams.push(beam);
-        Composite.add(this.world, beam);
+        Composite.add(this.world, [beam, collisionBody, pin1, pin2]);
         return beam;
+    }
+
+    syncBeams() {
+        // Only handles color highlighting now, dynamics are handled by constraints
+        this.beams.forEach(beam => {
+            if (!beam.collisionBody || !this.simulationRunning) return;
+            const p1 = beam.bodyA.position;
+            const p2 = beam.bodyB.position;
+            const dist = Vector.magnitude(Vector.sub(p1, p2));
+            
+            // Highlight based on stress by swapping textures
+            if (this.simulationRunning) {
+                const stress = Math.abs(dist - beam.length) / beam.length;
+                let newTexture = this.woodPatterns.normal;
+                
+                if (stress > 0.15) newTexture = this.woodPatterns.danger;
+                else if (stress > 0.05) newTexture = this.woodPatterns.stressed;
+                
+                if (beam.collisionBody.render.sprite.texture !== newTexture) {
+                    beam.collisionBody.render.sprite.texture = newTexture;
+                }
+            }
+        });
     }
 
     getOrCreateNode(point) {
@@ -302,6 +429,9 @@ export class PhysicsEngine {
                 Matter.Body.setStatic(n, false);
             }
         });
+        this.beams.forEach(b => {
+            if (b.collisionBody) Matter.Body.setStatic(b.collisionBody, false);
+        });
         this.weights.forEach(w => {
             Matter.Body.setStatic(w, false);
             if (w.initialVelocity) {
@@ -326,8 +456,11 @@ export class PhysicsEngine {
 
         Runner.run(this.runner, this.engine);
         
-        // Start stress monitoring
-        this.simulationInterval = setInterval(() => this.updateStress(), 1000/60);
+        // Start stress monitoring and visual sync
+        this.simulationInterval = setInterval(() => {
+            this.updateStress();
+            this.syncBeams();
+        }, 1000/60);
     }
 
     updateStress() {
@@ -358,6 +491,9 @@ export class PhysicsEngine {
     }
 
     breakBeam(beam) {
+        if (beam.collisionBody) {
+            Composite.remove(this.world, beam.collisionBody);
+        }
         Composite.remove(this.world, beam);
         this.beams = this.beams.filter(b => b !== beam);
     }
