@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Truss Master | Physics Puzzle</title>
+    <meta name="description" content="Build strong wooden structures to withstand falling weights. A structural engineering puzzle game.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <!-- Google Fonts: Inter & JetBrains Mono for a technical look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Matter.js Physics Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <div id="ui-overlay">
+            <header>
+                <div class="level-info">
+                    <span id="level-title">NIVEL 1</span>
+                    <div class="beams-counter">Palos: <span id="beams-used">0</span>/<span id="beams-max">10</span></div>
+                </div>
+                <div class="actions">
+                    <button id="btn-reset" title="Reiniciar">
+                        <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <div id="hint-panel" class="glass-panel">
+                <p id="level-hint">Crea una estructura estable para soportar el peso.</p>
+            </div>
+
+            <nav id="toolbar">
+                <button id="btn-build" class="active" data-tool="build">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z"/></svg>
+                    <span>Construir</span>
+                </button>
+                <button id="btn-delete" data-tool="delete">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                    <span>Borrar</span>
+                </button>
+                <div class="separator"></div>
+                <button id="btn-play" class="primary">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                    <span>Simular</span>
+                </button>
+            </nav>
+
+            <div id="win-screen" class="modal hidden">
+                <div class="modal-content glass-panel">
+                    <h2>¡Éxito!</h2>
+                    <p>La estructura ha aguantado el peso.</p>
+                    <button id="btn-next-level" class="primary">Siguiente Nivel</button>
+                </div>
+            </div>
+
+            <div id="fail-screen" class="modal hidden">
+                <div class="modal-content glass-panel">
+                    <h2>Fallo</h2>
+                    <p>El peso ha tocado el suelo o la estructura ha colapsado.</p>
+                    <button id="btn-retry" class="primary">Reintentar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
