@@ -5,6 +5,7 @@ const archetypes = [
     { name: "TORRE", type: "anchor" },
     { name: "PÉNDULO", type: "tether" },
     { name: "LLUVIA", type: "rain" },
+    { name: "CAÑÓN", type: "cannon" },
     { name: "PUENTE", type: "anchor" }
 ];
 
@@ -28,6 +29,28 @@ function generateLevels() {
 
         // Specific logic based on archetype
         switch (arch.type) {
+            case 'cannon':
+                const side = i % 2 === 0 ? 1 : -1;
+                const cannonX = side === 1 ? 50 : 750;
+                const cannonY = 200 + (i % 200);
+                const angle = side === 1 ? 0.3 : 2.8;
+                
+                level.environment = [{ 
+                    type: 'cannon', x: cannonX, y: cannonY, w: 80, h: 40, angle: angle 
+                }];
+                level.anchors = [
+                    { id: 'a1', x: 400 - 100, y: 550 },
+                    { id: 'a2', x: 400 + 100, y: 550 }
+                ];
+                level.bar = { x: 400, y: 450, width: 80, height: 20 };
+                level.weights = [{
+                    x: cannonX + side * 40, y: cannonY,
+                    radius: 20, mass: mass,
+                    velocity: { x: side * (10 + i/5), y: -5 + (i%10) }
+                }];
+                level.hint = "¡Fuego de artillería! Construye un escudo contra el impacto lateral.";
+                break;
+
             case 'wall':
                 level.environment = [{ type: 'wall', x: 50, y: 300, w: 100, h: 600 }];
                 level.anchors = [

@@ -100,6 +100,14 @@ export class PhysicsEngine {
                     
                     Composite.add(this.world, [multiBody, axle]);
                     this.extras.push({ id: env.id, body: multiBody });
+                } else if (env.type === 'cannon') {
+                    // Static cannon barrel
+                    const barrel = Bodies.rectangle(env.x, env.y, env.w, env.h, {
+                        isStatic: true,
+                        angle: env.angle || 0,
+                        render: { fillStyle: '#1e272e', strokeStyle: '#485460', lineWidth: 2 }
+                    });
+                    Composite.add(this.world, barrel);
                 } else {
                     // Standard static geometry (wall, slope)
                     body = Bodies.rectangle(env.x, env.y, env.w, env.h, {
@@ -178,6 +186,11 @@ export class PhysicsEngine {
 
             this.weights.push(weight);
             Composite.add(this.world, weight);
+            
+            // Store initial velocity for simulation start
+            if (wd.velocity) {
+                weight.initialVelocity = wd.velocity;
+            }
         });
 
         // Add Ground (invisible trigger)
@@ -265,9 +278,14 @@ export class PhysicsEngine {
             }
         });
         if (this.targetBar) Matter.Body.setStatic(this.targetBar, false);
-        this.weights.forEach(w => Matter.Body.setStatic(w, false));
+        this.weights.forEach(w => {
+            Matter.Body.setStatic(w, false);
+            if (w.initialVelocity) {
+                Matter.Body.setVelocity(w, w.initialVelocity);
+            }
+        });
 
-        // Tipping bucket logic: If any extra has 'tip' property
+        // Tipping bucket logic
         this.extras.forEach(extra => {
              if (this.currentLevel.environment.find(e => e.id === extra.id && e.tip)) {
                  Matter.Body.setAngularVelocity(extra.body, 0.15);
