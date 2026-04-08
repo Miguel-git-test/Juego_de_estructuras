@@ -5,7 +5,6 @@ const archetypes = [
     { name: "TORRE", type: "anchor" },
     { name: "PÉNDULO", type: "tether" },
     { name: "LLUVIA", type: "rain" },
-    { name: "CAÑÓN", type: "cannon" },
     { name: "PUENTE", type: "anchor" }
 ];
 
@@ -24,7 +23,8 @@ function generateLevels() {
             maxBeams: maxBeams,
             groundY: 650,
             anchors: [],
-            environment: []
+            environment: [],
+            checkpoints: []
         };
 
         // Specific logic based on archetype
@@ -35,40 +35,22 @@ function generateLevels() {
                 const cannonY = 200 + (i % 200);
                 const angle = side === 1 ? 0.3 : 2.8;
                 
-                level.environment = [{ 
-                    type: 'cannon', x: cannonX, y: cannonY, w: 80, h: 40, angle: angle 
-                }];
-                level.anchors = [
-                    { id: 'a1', x: 400 - 100, y: 550 },
-                    { id: 'a2', x: 400 + 100, y: 550 }
-                ];
-                level.bar = { x: 400, y: 450, width: 80, height: 20 };
+                level.environment = [{ type: 'cannon', x: cannonX, y: cannonY, w: 80, h: 40, angle: angle }];
+                level.anchors = [{ id: 'a1', x: 400 - 100, y: 550 }, { id: 'a2', x: 400 + 100, y: 550 }];
+                level.checkpoints = [{ x: 400 + side * 50, y: cannonY + 50 }];
                 level.weights = [{
                     x: cannonX + side * 40, y: cannonY,
                     radius: 20, mass: mass,
                     velocity: { x: side * (10 + i/5), y: -5 + (i%10) }
                 }];
-                level.hint = "¡Fuego de artillería! Construye un escudo contra el impacto lateral.";
-                break;
-
-            case 'wall':
-                level.environment = [{ type: 'wall', x: 50, y: 300, w: 100, h: 600 }];
-                level.anchors = [
-                    { id: 'a1', x: 100, y: 200 + Math.sin(i) * 100 },
-                    { id: 'a2', x: 100, y: 400 + Math.cos(i) * 100 }
-                ];
-                level.bar = { x: 300 + Math.sin(i) * 50, y: 350, width: 80 - (i%20), height: 20 };
-                level.weight = { x: 300 + Math.sin(i) * 50, y: 50, radius: 25 + (i%15), mass: mass };
+                level.hint = "Bloquea el proyectil. ¡La estructura debe pasar por el punto indicado!";
                 break;
             
             case 'car':
                 const carX = 200 + (i % 40) * 10;
                 level.environment = [{ id: 'car', type: 'car', x: carX, y: 550, w: 200, h: 40 }];
-                level.anchors = [
-                    { id: 'a1', x: carX - 70, y: 530, attachTo: 'car' },
-                    { id: 'a2', x: carX + 70, y: 530, attachTo: 'car' }
-                ];
-                level.bar = { x: carX, y: 350, width: 150 - (i%30), height: 20 };
+                level.anchors = [{ id: 'a1', x: carX - 70, y: 530, attachTo: 'car' }, { id: 'a2', x: carX + 70, y: 530, attachTo: 'car' }];
+                level.checkpoints = [{ x: carX, y: 400 }];
                 level.weight = { x: carX + Math.sin(i) * 30, y: 50, radius: 30, mass: mass };
                 break;
 
@@ -79,13 +61,13 @@ function generateLevels() {
                     { type: 'slope', x: 600, y: 550, w: 300, h: 20, angle: slopeAngle }
                 ];
                 level.anchors = [{ id: 'a1', x: 100, y: 400 }, { id: 'a2', x: 700, y: 400 }];
-                level.bar = { x: 400, y: 500, width: 100, height: 20 };
+                level.checkpoints = [{ x: 400, y: 450 }];
                 level.weight = { x: 400 + (i%2==0?40:-40), y: 0, radius: 40, mass: mass };
                 break;
 
             case 'tether':
                 level.anchors = [{ id: 'a1', x: 300 + Math.sin(i)*50, y: 550 }, { id: 'a2', x: 500 + Math.cos(i)*50, y: 550 }];
-                level.bar = { x: 400, y: 400, width: 40, height: 40 };
+                level.checkpoints = [{ x: 400, y: 300 }];
                 level.weight = { 
                     x: 100 + (i%20)*5, y: 200, radius: 35, mass: mass,
                     tether: { x: 400, y: -200 }
@@ -95,7 +77,7 @@ function generateLevels() {
             case 'rain':
                 level.environment = [{ id: 'bucket', type: 'bucket', x: 400, y: 150, w: 200, h: 40, tip: true }];
                 level.anchors = [{ id: 'a1', x: 200, y: 550 }, { id: 'a2', x: 600, y: 550 }];
-                level.bar = { x: 400, y: 500, width: 350, height: 20 };
+                level.checkpoints = [{ x: 300, y: 400 }, { x: 500, y: 400 }];
                 level.weights = Array.from({ length: 10 + Math.floor(i/5) }, (_, j) => ({
                     x: 350 + (j % 5) * 20,
                     y: 50 + Math.floor(j / 5) * 20,
@@ -103,12 +85,11 @@ function generateLevels() {
                 }));
                 break;
 
-            default: // anchor/bridge/tower
+            default: // Bridge/Tower/Wall
                 const gap = 200 + (i % 300);
                 level.anchors = [{ id: 'a1', x: 400 - gap/2, y: 500 }, { id: 'a2', x: 400 + gap/2, y: 500 }];
-                level.bar = { x: 400, y: 400 - (i%50), width: 100 + (i%100), height: 20 };
+                level.checkpoints = [{ x: 400, y: 400 - (i%50) }];
                 level.weight = { x: 400, y: 50, radius: 30 + (i%20), mass: mass };
-                level.hint = "Crea un puente arqueado para máxima resistencia.";
                 break;
         }
 

@@ -158,6 +158,21 @@ button.primary {
     min-width: 100px;
 }
 
+button.danger {
+    background: rgba(255, 71, 87, 0.1);
+    color: var(--accent-red);
+    border-color: var(--accent-red);
+}
+
+button.danger:active {
+    background: var(--accent-red);
+    color: #fff;
+}
+
+#game-canvas.tool-delete {
+    cursor: crosshair;
+}
+
 button.primary svg {
     opacity: 1;
 }

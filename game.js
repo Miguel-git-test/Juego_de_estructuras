@@ -33,6 +33,7 @@ class Game {
         // Actions
         document.getElementById('btn-play').onclick = () => this.startSimulation();
         document.getElementById('btn-reset').onclick = () => this.retryLevel();
+        document.getElementById('btn-clear-all').onclick = () => this.retryLevel();
         
         // Modals
         document.getElementById('btn-next-level').onclick = () => this.nextLevel();
@@ -61,6 +62,13 @@ class Game {
         this.tool = tool;
         document.querySelectorAll('#toolbar button').forEach(b => b.classList.remove('active'));
         document.getElementById(`btn-${tool}`).classList.add('active');
+        
+        // Visual cursor feedback
+        if (tool === 'delete') {
+            this.canvas.classList.add('tool-delete');
+        } else {
+            this.canvas.classList.remove('tool-delete');
+        }
     }
 
     initLevelSelector() {
@@ -138,6 +146,21 @@ class Game {
 
     handleMove(x, y) {
         this.mousePoint = { x, y };
+
+        // Highlight beam for eraser tool
+        this.hoveredBeam = null;
+        if (this.tool === 'delete' && !this.physics.simulationRunning) {
+            this.hoveredBeam = this.getBeamAt(x, y);
+        }
+    }
+
+    getBeamAt(x, y) {
+        return this.physics.beams.find(b => {
+             const midX = (b.bodyA.position.x + b.bodyB.position.x) / 2;
+             const midY = (b.bodyA.position.y + b.bodyB.position.y) / 2;
+             const dist = Math.hypot(midX - x, midY - y);
+             return dist < 40; // Increased tolerance for hovering
+        });
     }
 
     handleEnd() {
@@ -153,18 +176,12 @@ class Game {
     }
 
     deleteAt(x, y) {
-        // Find beam near click
-        const beam = this.physics.beams.find(b => {
-             const midX = (b.bodyA.position.x + b.bodyB.position.x) / 2;
-             const midY = (b.bodyA.position.y + b.bodyB.position.y) / 2;
-             const dist = Math.hypot(midX - x, midY - y);
-             return dist < 30;
-        });
-
+        const beam = this.getBeamAt(x, y);
         if (beam) {
             this.physics.breakBeam(beam);
             this.beamsUsed--;
             this.updateStats();
+            this.hoveredBeam = null;
         }
     }
 
@@ -173,6 +190,12 @@ class Game {
             alert("¡Debes colocar al menos un palo antes de simular!");
             return;
         }
+        
+        if (!this.physics.updateCheckpoints()) {
+            alert("¡Debes pasar tu estructura por todos los puntos indicativos (anillos)!");
+            return;
+        }
+
         this.physics.startSimulation();
         document.getElementById('btn-play').disabled = true;
         document.getElementById('toolbar').style.opacity = '0.3';
@@ -230,6 +253,36 @@ class Game {
                 
                 // Highlight the node the mouse is currently snapping to
                 const nearest = this.physics.findNearestNode(this.mousePoint);
+                
+                // Draw Checkpoints (Ghost Rings)
+                this.physics.checkpoints.forEach(cp => {
+                    ctx.beginPath();
+                    ctx.arc(cp.x, cp.y, 20, 0, Math.PI * 2);
+                    ctx.lineWidth = 3;
+                    if (cp.active) {
+                        ctx.strokeStyle = '#00f2ff';
+                        ctx.shadowBlur = 15;
+                        ctx.shadowColor = '#00f2ff';
+                    } else {
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                        ctx.shadowBlur = 0;
+                    }
+                    ctx.stroke();
+                    ctx.shadowBlur = 0; // Reset shadow for other drawing
+                });
+
+                // Highlight beam to be deleted
+                if (this.tool === 'delete' && this.hoveredBeam) {
+                    const b = this.hoveredBeam;
+                    ctx.beginPath();
+                    ctx.moveTo(b.bodyA.position.x, b.bodyA.position.y);
+                    ctx.lineTo(b.bodyB.position.x, b.bodyB.position.y);
+                    ctx.strokeStyle = '#ff4757';
+                    ctx.lineWidth = 12;
+                    ctx.lineCap = 'round';
+                    ctx.stroke();
+                }
+
                 if (nearest) {
                     ctx.beginPath();
                     ctx.arc(nearest.position.x, nearest.position.y, 15, 0, Math.PI * 2);

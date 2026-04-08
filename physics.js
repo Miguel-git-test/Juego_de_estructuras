@@ -11,7 +11,7 @@ export class PhysicsEngine {
         this.nodes = [];
         this.brokenBeams = 0;
         this.weights = [];
-        this.targetBar = null;
+        this.checkpoints = [];
         this.simulationRunning = false;
         this.ground = null;
         this.extras = []; // Walls, cars, etc.
@@ -42,7 +42,7 @@ export class PhysicsEngine {
         this.beams = [];
         this.nodes = [];
         this.weights = [];
-        this.targetBar = null;
+        this.checkpoints = [];
         this.simulationRunning = false;
         this.engine.timing.timeScale = 1;
         this.extras = [];
@@ -153,13 +153,12 @@ export class PhysicsEngine {
             Composite.add(this.world, node);
         });
 
-        // Add Target Bar (Physics body, usually static in build mode, dynamic in play)
-        this.targetBar = Bodies.rectangle(level.bar.x, level.bar.y, level.bar.width, level.bar.height, {
-            isStatic: true,
-            label: 'bar',
-            render: { fillStyle: '#fff', opacity: 0.8 }
-        });
-        Composite.add(this.world, this.targetBar);
+        // Add Checkpoints
+        if (level.checkpoints) {
+            this.checkpoints = level.checkpoints.map(cp => ({
+                x: cp.x, y: cp.y, active: false
+            }));
+        }
 
         // Add Weights (Single or Multiple)
         const weightDataList = level.weights || (level.weight ? [level.weight] : []);
@@ -277,13 +276,20 @@ export class PhysicsEngine {
                 Matter.Body.setStatic(n, false);
             }
         });
-        if (this.targetBar) Matter.Body.setStatic(this.targetBar, false);
         this.weights.forEach(w => {
             Matter.Body.setStatic(w, false);
             if (w.initialVelocity) {
                 Matter.Body.setVelocity(w, w.initialVelocity);
             }
         });
+
+        // Set a timer for victory: if after 4s no fail was triggered, it's a win
+        this.victoryTimeout = setTimeout(() => {
+            if (this.simulationRunning) {
+                const someWeightOutside = this.weights.some(w => w.position.y > this.currentLevel.groundY);
+                if (!someWeightOutside) this.onWin();
+            }
+        }, 4000);
 
         // Tipping bucket logic
         this.extras.forEach(extra => {
@@ -337,22 +343,20 @@ export class PhysicsEngine {
                 
                 // Weight hits ground -> Fail
                 if (labels.includes('weight') && labels.includes('ground')) {
+                    clearTimeout(this.victoryTimeout);
                     this.onFail();
-                }
-                
-                // Weight hits bar
-                if (labels.includes('weight') && labels.includes('bar')) {
-                    setTimeout(() => {
-                        if (this.simulationRunning) {
-                             // Check if any weight is still above ground
-                             const safeWeights = this.weights.every(w => w.position.y < this.currentLevel.groundY);
-                             if (safeWeights) {
-                                this.onWin();
-                             }
-                        }
-                    }, 2500);
                 }
             });
         });
+    }
+
+    updateCheckpoints() {
+        let allActive = true;
+        this.checkpoints.forEach(cp => {
+            const nearest = this.findNearestNode(cp, 25);
+            cp.active = !!nearest;
+            if (!cp.active) allActive = false;
+        });
+        return allActive;
     }
 }
